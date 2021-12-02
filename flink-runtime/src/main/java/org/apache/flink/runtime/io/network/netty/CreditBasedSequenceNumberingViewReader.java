@@ -70,6 +70,8 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 	private JobID jobID;
 	private short vertexID;
 
+	private boolean consumed;
+
 	CreditBasedSequenceNumberingViewReader(
 			InputChannelID receiverId,
 			int initialCredit,
@@ -78,6 +80,7 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 		this.receiverId = receiverId;
 		this.numCreditsAvailable = initialCredit;
 		this.requestQueue = requestQueue;
+		this.consumed = false;
 	}
 
 	@Override
@@ -198,6 +201,7 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 	@Override
 	public void notifySubpartitionConsumed() throws IOException {
 		LOG.info("Reader {} issues release notification for subpartition view {}.", this, subpartitionView);
+		this.consumed = true;
 		subpartitionView.notifySubpartitionConsumed();
 	}
 
@@ -213,14 +217,22 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 
 	@Override
 	public void releaseAllResources(Throwable cause) throws IOException {
-		LOG.info("Reader {} DOES NOT issue release resources call for subpartition view {} (it releases only the available buffers). Instead it sends fail consumer trigger.", this, subpartitionView);
-		subpartitionView.sendFailConsumerTrigger(cause);
+		if (!this.consumed) {
+			LOG.info("Reader {} DOES NOT issue release resources call for subpartition view {} (it releases only the available buffers). Instead it sends fail consumer trigger.", this, subpartitionView);
+			subpartitionView.sendFailConsumerTrigger(cause);
+		}else {
+			this.subpartitionView.releaseAllResources();
+		}
 	}
 
 	@Override
 	public void releaseAllResources() throws IOException {
-		LOG.info("Reader {} issues release resources call for subpartition view {}.", this, subpartitionView);
-		subpartitionView.sendFailConsumerTrigger(null);
+		if (!this.consumed) {
+			LOG.info("Reader {} issues release resources call for subpartition view {}.", this, subpartitionView);
+			subpartitionView.sendFailConsumerTrigger(null);
+		}else {
+			this.subpartitionView.releaseAllResources();
+		}
 	}
 
 	@Override
