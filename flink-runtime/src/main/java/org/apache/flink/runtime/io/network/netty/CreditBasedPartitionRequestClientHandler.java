@@ -21,8 +21,6 @@ package org.apache.flink.runtime.io.network.netty;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.NetworkClientHandler;
-import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
-import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
@@ -83,10 +81,14 @@ class CreditBasedPartitionRequestClientHandler extends ChannelInboundHandlerAdap
 	 * be accessed by task thread or canceler thread to cancel partition request during releasing resources.
 	 */
 	private volatile ChannelHandlerContext ctx;
-	private boolean consumed = false;
+	private final boolean sensitiveFailureDetectionEnabled;
 
 
 	public CreditBasedPartitionRequestClientHandler(){
+		this(true);
+	}
+	public CreditBasedPartitionRequestClientHandler(boolean sensitiveFailureDetectionEnabled){
+		this.sensitiveFailureDetectionEnabled = sensitiveFailureDetectionEnabled;
 	}
 
 
@@ -151,7 +153,7 @@ class CreditBasedPartitionRequestClientHandler extends ChannelInboundHandlerAdap
 					if (remoteInputChannel.getConnectionId().getAddress().equals(inetRemoteAddr)) {
 						LOG.debug("Send fail producer trigger to {}.", remoteInputChannel);
 						removeInputChannel(remoteInputChannel);
-						if(!this.consumed)
+						if(this.sensitiveFailureDetectionEnabled)
 							remoteInputChannel.triggerFailProducer(cause);
 						break;
 					}
@@ -191,7 +193,7 @@ class CreditBasedPartitionRequestClientHandler extends ChannelInboundHandlerAdap
 						if (remoteInputChannel.getConnectionId().getAddress().equals(inetRemoteAddr)) {
 							LOG.debug("Send fail producer trigger to {}.", remoteInputChannel);
 							removeInputChannel(remoteInputChannel);
-							if(!consumed)
+							if(this.sensitiveFailureDetectionEnabled)
 								remoteInputChannel.triggerFailProducer(cause);
 							break;
 						}
@@ -365,8 +367,6 @@ class CreditBasedPartitionRequestClientHandler extends ChannelInboundHandlerAdap
 				MemorySegment memSeg = MemorySegmentFactory.wrap(byteArray);
 				Buffer buffer = new NetworkBuffer(memSeg, FreeingBufferRecycler.INSTANCE, false, receivedSize);
 
-				if (EventSerializer.isEvent(buffer, EndOfPartitionEvent.class))
-					this.consumed = true;
 				inputChannel.onBuffer(buffer, bufferOrEvent.sequenceNumber, bufferOrEvent.backlog);
 			}
 		} finally {

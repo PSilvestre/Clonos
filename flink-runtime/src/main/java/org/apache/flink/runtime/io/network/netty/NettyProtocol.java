@@ -37,16 +37,19 @@ public class NettyProtocol {
 	private final TaskEventDispatcher taskEventDispatcher;
 
 	private final boolean creditBasedEnabled;
+	private final boolean sensitiveFailureDetectionEnabled;
 	private final CausalLogManager causalLogManager;
 
 	NettyProtocol(ResultPartitionProvider partitionProvider, TaskEventDispatcher taskEventDispatcher, boolean creditBasedEnabled) {
-		this(partitionProvider, taskEventDispatcher, creditBasedEnabled, null);
+		this(partitionProvider, taskEventDispatcher, creditBasedEnabled, null, true);
 	}
-	NettyProtocol(ResultPartitionProvider partitionProvider, TaskEventDispatcher taskEventDispatcher, boolean creditBasedEnabled, CausalLogManager causalLogManager) {
+
+	NettyProtocol(ResultPartitionProvider partitionProvider, TaskEventDispatcher taskEventDispatcher, boolean creditBasedEnabled, CausalLogManager causalLogManager, boolean sensitiveFailureDetectionEnabled) {
 		this.partitionProvider = partitionProvider;
 		this.taskEventDispatcher = taskEventDispatcher;
 		this.creditBasedEnabled = creditBasedEnabled;
 		this.causalLogManager = causalLogManager;
+		this.sensitiveFailureDetectionEnabled = sensitiveFailureDetectionEnabled;
 		this.messageEncoder = new NettyMessage.NettyMessageEncoder(causalLogManager);
 	}
 
@@ -86,7 +89,7 @@ public class NettyProtocol {
 	public ChannelHandler[] getServerChannelHandlers() {
 		PartitionRequestQueue queueOfPartitionQueues = new PartitionRequestQueue(causalLogManager);
 		PartitionRequestServerHandler serverHandler = new PartitionRequestServerHandler(
-			partitionProvider, taskEventDispatcher, queueOfPartitionQueues, creditBasedEnabled);
+			partitionProvider, taskEventDispatcher, queueOfPartitionQueues, creditBasedEnabled, sensitiveFailureDetectionEnabled);
 
 		return new ChannelHandler[] {
 			messageEncoder,
@@ -130,7 +133,7 @@ public class NettyProtocol {
 	 */
 	public ChannelHandler[] getClientChannelHandlers() {
 		NetworkClientHandler networkClientHandler =
-			creditBasedEnabled ? new CreditBasedPartitionRequestClientHandler() :
+			creditBasedEnabled ? new CreditBasedPartitionRequestClientHandler(sensitiveFailureDetectionEnabled) :
 				new PartitionRequestClientHandler();
 		return new ChannelHandler[] {
 			messageEncoder,

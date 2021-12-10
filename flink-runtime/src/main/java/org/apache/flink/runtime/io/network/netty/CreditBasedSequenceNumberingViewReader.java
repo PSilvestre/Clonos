@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.netty;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.runtime.causal.VertexID;
 import org.apache.flink.runtime.io.network.NetworkSequenceViewReader;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
@@ -70,17 +69,26 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 	private JobID jobID;
 	private short vertexID;
 
-	private boolean consumed;
+	private final boolean sensitiveFailureDetectionEnabled;
 
 	CreditBasedSequenceNumberingViewReader(
 			InputChannelID receiverId,
 			int initialCredit,
 			PartitionRequestQueue requestQueue) {
 
+		this(receiverId, initialCredit, requestQueue, true);
+	}
+
+
+	CreditBasedSequenceNumberingViewReader(
+		InputChannelID receiverId,
+		int initialCredit,
+		PartitionRequestQueue requestQueue, boolean sensitiveFailureDetectionEnabled) {
+
 		this.receiverId = receiverId;
 		this.numCreditsAvailable = initialCredit;
 		this.requestQueue = requestQueue;
-		this.consumed = false;
+		this.sensitiveFailureDetectionEnabled = sensitiveFailureDetectionEnabled;
 	}
 
 	@Override
@@ -201,7 +209,6 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 	@Override
 	public void notifySubpartitionConsumed() throws IOException {
 		LOG.info("Reader {} issues release notification for subpartition view {}.", this, subpartitionView);
-		this.consumed = true;
 		subpartitionView.notifySubpartitionConsumed();
 	}
 
@@ -217,7 +224,7 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 
 	@Override
 	public void releaseAllResources(Throwable cause) throws IOException {
-		if (!this.consumed) {
+		if (this.sensitiveFailureDetectionEnabled) {
 			LOG.info("Reader {} DOES NOT issue release resources call for subpartition view {} (it releases only the available buffers). Instead it sends fail consumer trigger.", this, subpartitionView);
 			subpartitionView.sendFailConsumerTrigger(cause);
 		}else {
@@ -227,7 +234,7 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 
 	@Override
 	public void releaseAllResources() throws IOException {
-		if (!this.consumed) {
+		if (this.sensitiveFailureDetectionEnabled) {
 			LOG.info("Reader {} issues release resources call for subpartition view {}.", this, subpartitionView);
 			subpartitionView.sendFailConsumerTrigger(null);
 		}else {

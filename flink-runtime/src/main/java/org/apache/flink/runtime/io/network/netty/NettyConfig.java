@@ -102,6 +102,11 @@ public class NettyConfig {
 		.defaultValue(false)
 		.withDescription("If optimizations like unique channel consumer sharing should be enabled. Disable if slot sharing is enabled.");
 
+	public static final ConfigOption<Boolean> ENABLE_SENSITIVE_FAILURE_DETECTION = ConfigOptions
+		.key("taskmanager.network.netty.enableSensitiveFailureDetection")
+		.defaultValue(false)
+		.withDescription("If we should use netty errors for failure detection");
+
 	public static final ConfigOption<String> TRANSPORT_TYPE = ConfigOptions
 			.key("taskmanager.network.netty.transport")
 			.defaultValue("nio")
@@ -120,7 +125,11 @@ public class NettyConfig {
 		return config.getBoolean(ENABLE_DELTA_SHARING_OPTIMIZATIONS);
 	}
 
-	// ------------------------------------------------------------------------
+    public boolean getSensitiveFailureDetectionEnabled() {
+		return config.getBoolean(ENABLE_SENSITIVE_FAILURE_DETECTION);
+    }
+
+    // ------------------------------------------------------------------------
 
 	enum TransportType {
 		NIO, EPOLL, AUTO

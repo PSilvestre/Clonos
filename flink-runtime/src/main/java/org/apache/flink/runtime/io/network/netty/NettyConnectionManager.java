@@ -38,11 +38,14 @@ public class NettyConnectionManager implements ConnectionManager {
 
 	private final CausalLogManager causalLogManager;
 
+	private final boolean sensitiveFailureDetectionEnabled;
+
 	public NettyConnectionManager(NettyConfig nettyConfig) {
 		this(nettyConfig, null);
 	}
 
 	public NettyConnectionManager(NettyConfig nettyConfig, CausalLogManager causalLogManager) {
+		this.sensitiveFailureDetectionEnabled = nettyConfig.getSensitiveFailureDetectionEnabled();
 		this.server = new NettyServer(nettyConfig);
 		this.client = new NettyClient(nettyConfig);
 		this.bufferPool = new NettyBufferPool(nettyConfig.getNumberOfArenas());
@@ -58,7 +61,7 @@ public class NettyConnectionManager implements ConnectionManager {
 		NettyProtocol partitionRequestProtocol = new NettyProtocol(
 			partitionProvider,
 			taskEventDispatcher,
-			client.getConfig().isCreditBasedEnabled(), causalLogManager);
+			client.getConfig().isCreditBasedEnabled(), causalLogManager, this.sensitiveFailureDetectionEnabled);
 
 		client.init(partitionRequestProtocol, bufferPool);
 		server.init(partitionRequestProtocol, bufferPool);

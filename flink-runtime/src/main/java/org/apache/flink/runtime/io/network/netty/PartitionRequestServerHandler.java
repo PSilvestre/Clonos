@@ -51,16 +51,19 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 
 	private final boolean creditBasedEnabled;
 
+	private final boolean sensitiveFailureDetectionEnabled;
+
 	PartitionRequestServerHandler(
 		ResultPartitionProvider partitionProvider,
 		TaskEventDispatcher taskEventDispatcher,
 		PartitionRequestQueue outboundQueue,
-		boolean creditBasedEnabled) {
+		boolean creditBasedEnabled, boolean sensitiveFailureDetectionEnabled) {
 
 		this.partitionProvider = partitionProvider;
 		this.taskEventDispatcher = taskEventDispatcher;
 		this.outboundQueue = outboundQueue;
 		this.creditBasedEnabled = creditBasedEnabled;
+		this.sensitiveFailureDetectionEnabled = sensitiveFailureDetectionEnabled;
 	}
 
 	@Override
@@ -92,7 +95,7 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 						reader = new CreditBasedSequenceNumberingViewReader(
 							request.receiverId,
 							request.credit,
-							outboundQueue);
+							outboundQueue, sensitiveFailureDetectionEnabled);
 						LOG.info("New reader {}.", reader);
 					} else {
 						reader = new SequenceNumberingViewReader(
